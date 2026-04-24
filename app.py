@@ -9,18 +9,16 @@ PAGE_ACCESS_TOKEN = "EAAU5UaV3N3cBRQk59GCJRFgZCgro0Uxkz11ysJ9ZCDFPyUy6msWCYRUwv4
 CLAUDE_API_KEY = "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"
 
 SYSTEM_PROMPT = """أنت مساعد بيع ذكي لمتجر TAWBA الجزائري. ردك دائماً بالدارجة الجزائرية.
-
 معلومات المنتج:
 - الاسم: بطاقة NFC TAWBA
 - السعر: 1900 دج
 - طريقة الاستخدام: تلمس الهاتف بالبطاقة وتشغل القرآن مباشرة
-- الدفع: عند الاستلام (COD)
+- الدفع: عند الاستلام COD
 - التوصيل: لجميع ولايات الجزائر
-
 مهمتك:
 1. رد على أسئلة الزبائن بشكل واضح ومختصر
 2. حفز الزبون على الطلب
-3. إذا أراد الزبون يطلب، اطلب منه: الاسم الكامل، رقم الهاتف، والعنوان
+3. إذا أراد الزبون يطلب اطلب منه الاسم الكامل ورقم الهاتف والعنوان
 4. كن ودود ومحترف دائماً"""
 
 @app.route('/webhook', methods=['GET'])
@@ -48,30 +46,40 @@ def webhook():
     return jsonify({"status": "ok"}), 200
 
 def get_claude_reply(text):
-    response = requests.post(
-        "https://api.anthropic.com/v1/messages",
-        headers={
-            "x-api-key": CLAUDE_API_KEY,
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json"
-        },
-        json={
-            "model": "claude-haiku-4-5",
-            "max_tokens": 500,
-            "system": SYSTEM_PROMPT,
-            "messages": [{"role": "user", "content": text}]
-        }
-    )
-    return response.json()['content'][0]['text']
+    try:
+        response = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": CLAUDE_API_KEY,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json"
+            },
+            json={
+                "model": "claude-haiku-4-5-20251001",
+                "max_tokens": 500,
+                "system": SYSTEM_PROMPT,
+                "messages": [{"role": "user", "content": text}]
+            }
+        )
+        data = response.json()
+        print(f"Claude response: {data}")
+        return data['content'][0]['text']
+    except Exception as e:
+        print(f"Claude error: {e}")
+        return "عندنا مشكلة تقنية، حاول مرة أخرى"
 
 def send_message(recipient_id, text):
-    requests.post(
-        f"https://graph.facebook.com/v19.0/me/messages?access_token={PAGE_ACCESS_TOKEN}",
-        json={
-            "recipient": {"id": recipient_id},
-            "message": {"text": text}
-        }
-    )
+    try:
+        r = requests.post(
+            f"https://graph.facebook.com/v19.0/me/messages?access_token={PAGE_ACCESS_TOKEN}",
+            json={
+                "recipient": {"id": recipient_id},
+                "message": {"text": text}
+            }
+        )
+        print(f"FB response: {r.json()}")
+    except Exception as e:
+        print(f"FB error: {e}")
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
