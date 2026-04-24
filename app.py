@@ -5,8 +5,23 @@ from flask import Flask, request, jsonify
 app = Flask(__name__)
 
 VERIFY_TOKEN = "outilshop2024"
-PAGE_ACCESS_TOKEN = "EAAU5UaV3N3cBRSZBlbNbUD8tbFpQA5cEQrfv5qZAuKWq0k8u6UQGCqpcehk8UrdyRRCoRtBoxN0y7E3g1GSU63wDpgJ9LZCdCCjZBcomv4pxOp3yAVQNvTZCH7RPP1XS9i9S8R9AcXRZB4mZCcRUbZAXT3tIhRNm0dymaDTBpYrKJflAt4D83a628NKfOMaFLwKZBcfCvuljZA5eRqEQ5ZA06bKUQZDZD"
+PAGE_ACCESS_TOKEN = "EAAU5UaV3N3cBRQk59GCJRFgZCgro0Uxkz11ysJ9ZCDFPyUy6msWCYRUwv4XNmVhDrJ8Aguwb74PZAjzbhC2eVNMaObciEeNZCOzYNUlT1kLjkUnmm6eviIYpACQ1f2ajAp6KJRL9oIzf6m5s41y2CBdsCmWd5J0gOZBxu8hHCmZCGynM3qsSYn2SZBPjMiXJYjJDRaDqW4q6f8pt2Uuf9yvKgZDZD"
 CLAUDE_API_KEY = "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"
+
+SYSTEM_PROMPT = """أنت مساعد بيع ذكي لمتجر TAWBA الجزائري. ردك دائماً بالدارجة الجزائرية.
+
+معلومات المنتج:
+- الاسم: بطاقة NFC TAWBA
+- السعر: 1900 دج
+- طريقة الاستخدام: تلمس الهاتف بالبطاقة وتشغل القرآن مباشرة
+- الدفع: عند الاستلام (COD)
+- التوصيل: لجميع ولايات الجزائر
+
+مهمتك:
+1. رد على أسئلة الزبائن بشكل واضح ومختصر
+2. حفز الزبون على الطلب
+3. إذا أراد الزبون يطلب، اطلب منه: الاسم الكامل، رقم الهاتف، والعنوان
+4. كن ودود ومحترف دائماً"""
 
 @app.route('/webhook', methods=['GET'])
 def verify():
@@ -43,7 +58,7 @@ def get_claude_reply(text):
         json={
             "model": "claude-haiku-4-5",
             "max_tokens": 500,
-            "system": "أنت مساعد لمتجر TAWBA. المنتج الرئيسي: بطاقة NFC TAWBA بسعر 1900 دج. رد بالدارجة الجزائرية دائماً بشكل مختصر وواضح.",
+            "system": SYSTEM_PROMPT,
             "messages": [{"role": "user", "content": text}]
         }
     )
@@ -59,5 +74,5 @@ def send_message(recipient_id, text):
     )
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 8080))
     app.run(host='0.0.0.0', port=port)
