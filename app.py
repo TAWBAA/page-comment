@@ -5,7 +5,7 @@ from flask import Flask, request, jsonify
 app = Flask(__name__)
 
 VERIFY_TOKEN = "outilshop2024"
-PAGE_ACCESS_TOKEN = "EAAU5UaV3N3cBRQk59GCJRFgZCgro0Uxkz11ysJ9ZCDFPyUy6msWCYRUwv4XNmVhDrJ8Aguwb74PZAjzbhC2eVNMaObciEeNZCOzYNUlT1kLjkUnmm6eviIYpACQ1f2ajAp6KJRL9oIzf6m5s41y2CBdsCmWd5J0gOZBxu8hHCmZCGynM3qsSYn2SZBPjMiXJYjJDRaDqW4q6f8pt2Uuf9yvKgZDZD"
+PAGE_ACCESS_TOKEN = os.environ.get("PAGE_ACCESS_TOKEN")
 CLAUDE_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 
 SYSTEM_PROMPT = """أنت مسوق محترف تبيع بطاقة NFC TAWBA للزبائن الجزائريين عبر الماسنجر.
@@ -86,14 +86,12 @@ def webhook():
                     print(f"=== COMMENT === id={comment_id} from={commenter_id} text={comment_text}")
 
                     if contains_price_keyword(comment_text):
-                        # سعر → رد ثابت في التعليق + DM
                         if comment_id:
                             reply_to_comment(comment_id, "ردينا عليك في الخاص 👇")
                         if commenter_id:
                             dm_reply = get_claude_reply(comment_text, SYSTEM_PROMPT)
                             send_message(commenter_id, dm_reply)
                     else:
-                        # تعليق عادي → رد ذكي في التعليق + DM
                         if comment_id:
                             comment_reply = get_claude_reply(comment_text, COMMENT_SYSTEM_PROMPT)
                             reply_to_comment(comment_id, comment_reply)
@@ -151,7 +149,6 @@ def reply_to_comment(comment_id, text):
         )
         result = r.json()
         print(f"Comment reply: {result}")
-        # إذا فيه error نحاولوا بطريقة ثانية
         if 'error' in result:
             r2 = requests.post(
                 f"https://graph.facebook.com/v19.0/{comment_id}/comments",
