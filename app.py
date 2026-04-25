@@ -46,15 +46,10 @@ def verify():
 @app.route('/webhook', methods=['POST'])
 def webhook():
     data = request.get_json()
-    
-    # DEBUG - نشوف كل اللي يوصل من Facebook
     print(f"=== WEBHOOK DATA === {data}")
-    
+
     try:
         for entry in data.get('entry', []):
-            
-            # DEBUG - نشوف كل entry
-            print(f"=== ENTRY === {entry}")
 
             # رسائل ماسنجر
             for messaging in entry.get('messaging', []):
@@ -67,23 +62,25 @@ def webhook():
             # تعليقات الصفحة
             for change in entry.get('changes', []):
                 value = change.get('value', {})
-                
-                # DEBUG - نشوف كل change
                 print(f"=== CHANGE === field={change.get('field')} item={value.get('item')} verb={value.get('verb')}")
-                
+
                 if value.get('item') == 'comment' and value.get('verb') == 'add':
+                    # نجيبوا الـ comment_id الصحيح
                     comment_id = value.get('comment_id')
                     commenter_id = value.get('from', {}).get('id')
-                    comment_text = value.get('message', '')
+                    # نجيبوا النص بكل الطرق الممكنة
+                    comment_text = value.get('message') or value.get('text') or ''
 
-                    print(f"=== COMMENT DETECTED === id={comment_id} from={commenter_id} text={comment_text}")
+                    print(f"=== COMMENT === id={comment_id} from={commenter_id} text={comment_text}")
 
                     # رد في التعليق
-                    reply_to_comment(comment_id, COMMENT_REPLY)
+                    if comment_id:
+                        reply_to_comment(comment_id, COMMENT_REPLY)
 
-                    # إرسال DM بالذكاء الاصطناعي
-                    if commenter_id and comment_text:
-                        dm_reply = get_claude_reply(comment_text)
+                    # إرسال DM دائماً حتى لو التعليق فارغ
+                    if commenter_id:
+                        dm_text = comment_text if comment_text else "مرحبا"
+                        dm_reply = get_claude_reply(dm_text)
                         send_message(commenter_id, dm_reply)
 
     except Exception as e:
@@ -128,8 +125,10 @@ def send_message(recipient_id, text):
 
 def reply_to_comment(comment_id, text):
     try:
+        # نستعملوا messages endpoint بدل comments
         r = requests.post(
-            f"https://graph.facebook.com/v19.0/{comment_id}/comments?access_token={PAGE_ACCESS_TOKEN}",
+            f"https://graph.facebook.com/v19.0/{comment_id}/comments",
+            params={"access_token": PAGE_ACCESS_TOKEN},
             json={"message": text}
         )
         print(f"Comment reply: {r.json()}")
