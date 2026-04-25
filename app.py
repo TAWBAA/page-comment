@@ -46,8 +46,16 @@ def verify():
 @app.route('/webhook', methods=['POST'])
 def webhook():
     data = request.get_json()
+    
+    # DEBUG - نشوف كل اللي يوصل من Facebook
+    print(f"=== WEBHOOK DATA === {data}")
+    
     try:
         for entry in data.get('entry', []):
+            
+            # DEBUG - نشوف كل entry
+            print(f"=== ENTRY === {entry}")
+
             # رسائل ماسنجر
             for messaging in entry.get('messaging', []):
                 sender_id = messaging['sender']['id']
@@ -59,10 +67,16 @@ def webhook():
             # تعليقات الصفحة
             for change in entry.get('changes', []):
                 value = change.get('value', {})
+                
+                # DEBUG - نشوف كل change
+                print(f"=== CHANGE === field={change.get('field')} item={value.get('item')} verb={value.get('verb')}")
+                
                 if value.get('item') == 'comment' and value.get('verb') == 'add':
                     comment_id = value.get('comment_id')
                     commenter_id = value.get('from', {}).get('id')
                     comment_text = value.get('message', '')
+
+                    print(f"=== COMMENT DETECTED === id={comment_id} from={commenter_id} text={comment_text}")
 
                     # رد في التعليق
                     reply_to_comment(comment_id, COMMENT_REPLY)
