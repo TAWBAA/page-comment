@@ -76,6 +76,7 @@ def webhook():
             # تعليقات الصفحة
             for change in entry.get('changes', []):
                 value = change.get('value', {})
+                print(f"=== CHANGE === field={change.get('field')} item={value.get('item')} verb={value.get('verb')}")
 
                 if value.get('item') == 'comment' and value.get('verb') == 'add':
                     comment_id = value.get('comment_id')
@@ -84,16 +85,15 @@ def webhook():
 
                     print(f"=== COMMENT === id={comment_id} from={commenter_id} text={comment_text}")
 
-                    # إذا فيه كلمة سعر → رد ثابت في التعليق + DM
                     if contains_price_keyword(comment_text):
+                        # سعر → رد ثابت في التعليق + DM
                         if comment_id:
                             reply_to_comment(comment_id, "ردينا عليك في الخاص 👇")
                         if commenter_id:
                             dm_reply = get_claude_reply(comment_text, SYSTEM_PROMPT)
                             send_message(commenter_id, dm_reply)
-
-                    # تعليق عادي → رد ذكي في التعليق + DM
                     else:
+                        # تعليق عادي → رد ذكي في التعليق + DM
                         if comment_id:
                             comment_reply = get_claude_reply(comment_text, COMMENT_SYSTEM_PROMPT)
                             reply_to_comment(comment_id, comment_reply)
@@ -149,7 +149,18 @@ def reply_to_comment(comment_id, text):
             params={"access_token": PAGE_ACCESS_TOKEN},
             json={"message": text}
         )
-        print(f"Comment reply: {r.json()}")
+        result = r.json()
+        print(f"Comment reply: {result}")
+        # إذا فيه error نحاولوا بطريقة ثانية
+        if 'error' in result:
+            r2 = requests.post(
+                f"https://graph.facebook.com/v19.0/{comment_id}/comments",
+                params={
+                    "access_token": PAGE_ACCESS_TOKEN,
+                    "message": text
+                }
+            )
+            print(f"Comment reply attempt 2: {r2.json()}")
     except Exception as e:
         print(f"Comment error: {e}")
 
