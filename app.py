@@ -32,6 +32,8 @@ SYSTEM_PROMPT = """أنت مسوق محترف تبيع بطاقة NFC TAWBA لل
 - إذا قال "نطلب" أو "بغيت" اطلب منه: الاسم الكامل، رقم الهاتف، الولاية
 - إذا قال غالي قله القيمة تستاهل وعند الاستلام تشوف بعينيك"""
 
+COMMENT_REPLY = "راسلنا في DM باش نجاوبوك على كل أسئلتك 👇"
+
 @app.route('/webhook', methods=['GET'])
 def verify():
     mode = request.args.get('hub.mode')
@@ -46,12 +48,30 @@ def webhook():
     data = request.get_json()
     try:
         for entry in data.get('entry', []):
+            # رسائل ماسنجر
             for messaging in entry.get('messaging', []):
                 sender_id = messaging['sender']['id']
                 message_text = messaging.get('message', {}).get('text')
                 if message_text:
                     reply = get_claude_reply(message_text)
                     send_message(sender_id, reply)
+
+            # تعليقات الصفحة
+            for change in entry.get('changes', []):
+                value = change.get('value', {})
+                if value.get('item') == 'comment' and value.get('verb') == 'add':
+                    comment_id = value.get('comment_id')
+                    commenter_id = value.get('from', {}).get('id')
+                    comment_text = value.get('message', '')
+
+                    # رد في التعليق
+                    reply_to_comment(comment_id, COMMENT_REPLY)
+
+                    # إرسال DM بالذكاء الاصطناعي
+                    if commenter_id and comment_text:
+                        dm_reply = get_claude_reply(comment_text)
+                        send_message(commenter_id, dm_reply)
+
     except Exception as e:
         print(f"Error: {e}")
     return jsonify({"status": "ok"}), 200
@@ -77,7 +97,7 @@ def get_claude_reply(text):
         return data['content'][0]['text']
     except Exception as e:
         print(f"Claude error: {e}")
-        return "عندنا مشكلة تقنية، حاول مرة أخرى"
+        return "راسلنا في DM باش نجاوبوك 👇"
 
 def send_message(recipient_id, text):
     try:
@@ -91,6 +111,16 @@ def send_message(recipient_id, text):
         print(f"FB response: {r.json()}")
     except Exception as e:
         print(f"FB error: {e}")
+
+def reply_to_comment(comment_id, text):
+    try:
+        r = requests.post(
+            f"https://graph.facebook.com/v19.0/{comment_id}/comments?access_token={PAGE_ACCESS_TOKEN}",
+            json={"message": text}
+        )
+        print(f"Comment reply: {r.json()}")
+    except Exception as e:
+        print(f"Comment error: {e}")
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
