@@ -6,7 +6,7 @@ app = Flask(__name__)
 
 VERIFY_TOKEN = "outilshop2024"
 PAGE_ACCESS_TOKEN = "EAAU5UaV3N3cBRQk59GCJRFgZCgro0Uxkz11ysJ9ZCDFPyUy6msWCYRUwv4XNmVhDrJ8Aguwb74PZAjzbhC2eVNMaObciEeNZCOzYNUlT1kLjkUnmm6eviIYpACQ1f2ajAp6KJRL9oIzf6m5s41y2CBdsCmWd5J0gOZBxu8hHCmZCGynM3qsSYn2SZBPjMiXJYjJDRaDqW4q6f8pt2Uuf9yvKgZDZD"
-CLAUDE_API_KEY = "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"
+CLAUDE_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 
 SYSTEM_PROMPT = """أنت مساعد بيع ذكي لمتجر TAWBA الجزائري. ردك دائماً بالدارجة الجزائرية.
 معلومات المنتج:
