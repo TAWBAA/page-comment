@@ -32,7 +32,21 @@ SYSTEM_PROMPT = """أنت مسوق محترف تبيع بطاقة NFC TAWBA لل
 - إذا قال "نطلب" أو "بغيت" اطلب منه: الاسم الكامل، رقم الهاتف، الولاية
 - إذا قال غالي قله القيمة تستاهل وعند الاستلام تشوف بعينيك"""
 
-COMMENT_REPLY = "راسلنا في DM باش نجاوبوك على كل أسئلتك 👇"
+COMMENT_SYSTEM_PROMPT = """أنت مسوق محترف ترد على تعليقات فيسبوك لمتجر TAWBA.
+
+قواعد صارمة للرد على التعليقات:
+- ردك قصير جداً — جملة واحدة فقط
+- لا تذكر السعر أبداً في التعليق
+- لا تقول "السلام عليكم" أو أي تحية
+- لا تقول "ديالك" — قل "تاعك"
+- تكلم بالدارجة الجزائرية
+- هدفك تحفيز الشخص يراسل في الخاص"""
+
+PRICE_KEYWORDS = ['سعر', 'السعر', 'شحال', 'قداه', 'prix', 'كم', 'بكاش', 'بقداه', 'ثمن', 'الثمن', 'غالي', 'رخيص']
+
+def contains_price_keyword(text):
+    text_lower = text.lower()
+    return any(keyword in text_lower for keyword in PRICE_KEYWORDS)
 
 @app.route('/webhook', methods=['GET'])
 def verify():
@@ -56,38 +70,43 @@ def webhook():
                 sender_id = messaging['sender']['id']
                 message_text = messaging.get('message', {}).get('text')
                 if message_text:
-                    reply = get_claude_reply(message_text)
+                    reply = get_claude_reply(message_text, SYSTEM_PROMPT)
                     send_message(sender_id, reply)
 
             # تعليقات الصفحة
             for change in entry.get('changes', []):
                 value = change.get('value', {})
-                print(f"=== CHANGE === field={change.get('field')} item={value.get('item')} verb={value.get('verb')}")
 
                 if value.get('item') == 'comment' and value.get('verb') == 'add':
-                    # نجيبوا الـ comment_id الصحيح
                     comment_id = value.get('comment_id')
                     commenter_id = value.get('from', {}).get('id')
-                    # نجيبوا النص بكل الطرق الممكنة
                     comment_text = value.get('message') or value.get('text') or ''
 
                     print(f"=== COMMENT === id={comment_id} from={commenter_id} text={comment_text}")
 
-                    # رد في التعليق
-                    if comment_id:
-                        reply_to_comment(comment_id, COMMENT_REPLY)
+                    # إذا فيه كلمة سعر → رد ثابت في التعليق + DM
+                    if contains_price_keyword(comment_text):
+                        if comment_id:
+                            reply_to_comment(comment_id, "ردينا عليك في الخاص 👇")
+                        if commenter_id:
+                            dm_reply = get_claude_reply(comment_text, SYSTEM_PROMPT)
+                            send_message(commenter_id, dm_reply)
 
-                    # إرسال DM دائماً حتى لو التعليق فارغ
-                    if commenter_id:
-                        dm_text = comment_text if comment_text else "مرحبا"
-                        dm_reply = get_claude_reply(dm_text)
-                        send_message(commenter_id, dm_reply)
+                    # تعليق عادي → رد ذكي في التعليق + DM
+                    else:
+                        if comment_id:
+                            comment_reply = get_claude_reply(comment_text, COMMENT_SYSTEM_PROMPT)
+                            reply_to_comment(comment_id, comment_reply)
+                        if commenter_id:
+                            dm_text = comment_text if comment_text else "مرحبا"
+                            dm_reply = get_claude_reply(dm_text, SYSTEM_PROMPT)
+                            send_message(commenter_id, dm_reply)
 
     except Exception as e:
         print(f"Error: {e}")
     return jsonify({"status": "ok"}), 200
 
-def get_claude_reply(text):
+def get_claude_reply(text, system_prompt):
     try:
         response = requests.post(
             "https://api.anthropic.com/v1/messages",
@@ -99,7 +118,7 @@ def get_claude_reply(text):
             json={
                 "model": "claude-haiku-4-5-20251001",
                 "max_tokens": 500,
-                "system": SYSTEM_PROMPT,
+                "system": system_prompt,
                 "messages": [{"role": "user", "content": text}]
             }
         )
@@ -125,7 +144,6 @@ def send_message(recipient_id, text):
 
 def reply_to_comment(comment_id, text):
     try:
-        # نستعملوا messages endpoint بدل comments
         r = requests.post(
             f"https://graph.facebook.com/v19.0/{comment_id}/comments",
             params={"access_token": PAGE_ACCESS_TOKEN},
